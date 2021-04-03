@@ -90,7 +90,7 @@ def main_handler(message):
     elif not chat_id in all_:
         other_message(message)
 
-    #----------------повтор для алкашей-------------
+    #----------------повтор для заказчиков-------------
     elif all_[chat_id].progress == 'select transmission' and all_[chat_id].type_ == 'need':
         bot.send_message(chat_id, 'давайте попробуем еще раз, выберите коробку передач авто')
         all_[chat_id].send_transmission_request(message)
@@ -133,7 +133,7 @@ def main_handler(message):
     
     #--------------------------проверка------------------
     if chat_id in all_:
-        #--------------------------первое для алкашей------------------
+        #--------------------------первое для заказчиков------------------
         if all_[chat_id].progress == 'send phone' and all_[chat_id].type_ == 'need' and \
             (message.contact != None or (message.text != None and re.search(phone_pattern, message.text))):
             all_[chat_id].update_progress('send location')
@@ -176,7 +176,7 @@ def query_handler(call):
         other_message(call.message)
         return
     
-    #--------------------------прослушка call алкашей------------------
+    #--------------------------прослушка call заказчиков------------------
     user = all_[call.from_user.id]
     if user.type_ == 'need':
         if user.progress == 'select transmission' and (call.data == 'АКПП' or call.data == 'МКПП'):
