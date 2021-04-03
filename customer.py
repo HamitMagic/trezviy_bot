@@ -6,7 +6,8 @@ class customer:
     transmission = None
     category = None
     phone = None
-    location = ['', '']
+    location = None
+    location_togo = None
     price = None
     chat_id = None
     default_price = None
@@ -18,7 +19,7 @@ class customer:
         self.default_price = default_price
 
     def __str__(self):
-        return "из алкаша: type_ - %s, transmission - %s, category - %s, phone - %s, location - %s, price - %s, chat_id - %s, username - %s" % (self.type_, self.transmission, self.category, self.phone, self.location, self.price, self.chat_id, self.username)
+        return "из заказчика: type_ - %s, transmission - %s, category - %s, phone - %s, location - %s, location_togo - %s, price - %s, chat_id - %s, username - %s" % (self.type_, self.transmission, self.category, self.phone, self.location, self.location_togo, self.price, self.chat_id, self.username)
 
     def update_progress(self, state):
         self.progress = state
@@ -57,8 +58,13 @@ class customer:
         keyboard0.add(button_geo) 
         self.bot.send_message(message.chat.id, 'Укажите свое местоположение', reply_markup=keyboard0)
 
-    def send_price_request(self, message, location):
+    def send_location_togo_request(self, message, location):
+        rk = types.ReplyKeyboardRemove(selective=False)
         self.location = location
+        self.bot.send_message(message.chat.id, 'Куда поедем? Отправьте геопозицию пожалуйста', reply_markup=rk)
+
+    def send_price_request(self, message, location_togo):
+        self.location_togo = location_togo
         keyboard = types.InlineKeyboardMarkup()
         item1 = types.InlineKeyboardButton(self.default_price, callback_data=self.default_price)
         item2 = types.InlineKeyboardButton(self.default_price+500, callback_data=self.default_price+500)
@@ -70,21 +76,18 @@ class customer:
         keyboard.add(item1, item2, item3, item4, item5, item6, item7, row_width=3)
         self.bot.send_message(message.chat.id, 'Укажите сумму', reply_markup=keyboard)
 
-    def send_own_price(self, message, location):
-        self.bot.send_message(message.chat.id, f'укажите свою сумму, но не менее {self.default_price}')
-
-    def send_own_price_request(self, message, location):
+    def send_own_price_request(self, message, location_togo):
         if message.text.isdigit() and int(message.text) >= self.default_price:
             self.send_final_message(message.text, message.chat.id)
         elif message.text.isdigit() and int(message.text) < self.default_price:
-            self.send_reprice_message(message, self.location)
+            self.send_reprice_message(message, self.location_togo)
         else:
             self.bot.send_message(message.chat.id, f'Выберите из предложенного, либо укажите цифрами, но не менее {self.default_price}')
-            self.send_price_request(message, self.location)
+            self.send_price_request(message, self.location_togo)
 
-    def send_reprice_message(self, message, location):
+    def send_reprice_message(self, message, location_togo):
         self.bot.send_message(message.chat.id, f'Слишком мало, укажите цену больше {self.default_price}')
-        self.send_price_request(message, self.location)
+        self.send_price_request(message, self.location_togo)
 
     def send_final_message(self, text, chat_id):
         self.price = int(text)

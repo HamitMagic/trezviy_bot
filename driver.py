@@ -4,14 +4,14 @@ class driver:
     type_ = 'vodila'
     bot = None
     transmission = None
-    category = ['', '', '', '', '']
+    category = [" ", " ", " ", " ", " "]
     phone = None
-    location = ['', '']
+    location = None
     price = None
     chat_id = None
     default_price = None
     username = None
-    progress = ''
+    progress = " "
     transmissions = ['АКПП', 'АКПП + МКПП']
 
     def __init__(self, bot, default_price):

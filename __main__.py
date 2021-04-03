@@ -30,16 +30,17 @@ def select_from_db_clients(cursor):
 
 #-------------------------------БД-------------------------------------------
 def insert_into_db_clients(user):
-    DB = 'INSERT INTO public.clients(chat_id, category, transmission, phone, "@username", price, location) ' \
-        f'VALUES ({user.chat_id}, {user.category}, {user.transmission}, ' \
-        f'{user.phone}, {user.username}, {user.price}, ({user.location[0]}, {user.location[1]}))'
+    DB = "INSERT INTO public.clients(chat_id, category, transmission, phone, username, price, location, location_togo) " \
+        f"VALUES ({user.chat_id}, '{user.category}', '{user.transmission}', " \
+        f"{user.phone}, '{user.username}', {user.price}, ARRAY{[user.location.longitude, user.location.latitude]}, " \
+        f"ARRAY{[user.location_togo.longitude, user.location_togo.latitude]})"
     print(DB)
     cursor.execute(DB)
 
 def insert_into_db_drivers(user):
-    DB = 'INSERT INTO public.drivers(chat_id, category, transmission, phone, "@username", price, location) ' \
-        f'VALUES ({user.chat_id}, ({", ".join(user.category)}), {user.transmission}, ' \
-        f'{user.phone}, {user.username}, {user.price}, ({user.location[0]}, {user.location[1]}))'
+    DB = "INSERT INTO public.drivers(chat_id, category, transmission, phone, username) " \
+        f"VALUES ({user.chat_id}, ARRAY{user.category}, '{user.transmission}', " \
+        f"{user.phone}, '{user.username}')"
     print(DB)
     cursor.execute(DB)
 
@@ -92,40 +93,48 @@ def main_handler(message):
 
     #----------------повтор для заказчиков-------------
     elif all_[chat_id].progress == 'select transmission' and all_[chat_id].type_ == 'need':
-        bot.send_message(chat_id, 'давайте попробуем еще раз, выберите коробку передач авто')
+        bot.send_message(chat_id, 'Давайте попробуем еще раз, выберите коробку передач авто')
         all_[chat_id].send_transmission_request(message)
     elif all_[chat_id].progress == 'select category' and all_[chat_id].type_ == 'need':
-        bot.send_message(chat_id, 'давайте попробуем еще раз, выберите категорию авто')
+        bot.send_message(chat_id, 'Давайте попробуем еще раз, выберите категорию авто')
         all_[chat_id].send_category_request(all_[chat_id].transmission, chat_id)
     elif all_[chat_id].progress == 'send phone' and all_[chat_id].type_ == 'need' and \
         message.contact == None and not re.search(phone_pattern, message.text):
-        bot.send_message(chat_id, 'давайте попробуем еще раз, отправьте номер телефона')
+        bot.send_message(chat_id, 'Давайте попробуем еще раз, отправьте номер телефона')
         all_[chat_id].send_phone_request(message, all_[chat_id].category)
     elif all_[chat_id].progress == 'send location' and all_[chat_id].type_ == 'need' and \
         message.location == None:
-        bot.send_message(chat_id, 'давайте попробуем еще раз, отправьте свое местополение')
+        bot.send_message(chat_id, 'Давайте попробуем еще раз, отправьте свое местополение')
         all_[chat_id].send_location_request(message, all_[chat_id].phone)
+    elif all_[chat_id].progress == 'send location_togo' and all_[chat_id].type_== 'need' and \
+        message.location == None:
+        bot.send_message(chat_id, 'Давайте попробуем еще раз?')
+        all_[chat_id].send_location_togo_request(message, all_[chat_id].location)
     elif all_[chat_id].progress == 'send price' and all_[chat_id].type_ == 'need':
-        all_[chat_id].send_own_price_request(message, all_[chat_id].location)
+        if message.text.isdigit() and int(message.text) >= default_price:
+            all_[chat_id].send_final_message(message.text, chat_id)
+            insert_into_db_clients(all_[chat_id])
+        else:
+            all_[chat_id].send_own_price_request(message, all_[chat_id].location_togo)
     elif all_[chat_id].progress == 'send own price' and all_[chat_id].type_ == 'need':
-        all_[chat_id].send_own_price_request(message, all_[chat_id].location)
+        all_[chat_id].send_own_price_request(message, all_[chat_id].location_togo)
     elif all_[chat_id].progress == 'send final' and all_[chat_id].type_ == 'need':
         print(all_[chat_id])
         bot.send_message(chat_id, 'Ищу водителя! \nЕсли прошло много времени попробуйте еще раз вызвать через /start' \
             '\nВы можете почитать помощь /help или узнать больше о боте /about')
     #----------------повтор для водителей-------------
     elif all_[chat_id].progress == 'select transmission' and all_[chat_id].type_ == 'vodila':
-        bot.send_message(chat_id, 'давайте попробуем еще раз?')
+        bot.send_message(chat_id, 'Давайте попробуем еще раз?')
         all_[chat_id].send_transmission_request(message)
     elif all_[chat_id].progress == 'select category' and all_[chat_id].type_ == 'vodila':
-        bot.send_message(chat_id, 'давайте попробуем еще раз?')
+        bot.send_message(chat_id, 'Давайте попробуем еще раз?')
         all_[chat_id].send_category_request(all_[chat_id].transmission, chat_id, 'Выберите категории ВУ и нажмите далее')
     elif all_[chat_id].progress == 'send phone' and all_[chat_id].type_ == 'vodila' and \
         message.contact == None and not re.search(phone_pattern, message.text):
-        bot.send_message(chat_id, 'давайте попробуем еще раз?')
+        bot.send_message(chat_id, 'Давайте попробуем еще раз?')
         all_[chat_id].send_phone_request(message, all_[chat_id].category)
     elif all_[chat_id].progress == 'send price' and all_[chat_id].type_ == 'vodila':
-        bot.send_message(chat_id, 'давайте попробуем еще раз, отправьте свою цену')
+        bot.send_message(chat_id, 'Давайте попробуем еще раз, отправьте свою цену')
         all_[chat_id].send_price_request(message)
     elif all_[chat_id].progress == 'send final' and all_[chat_id].type_ == 'vodila':
         bot.send_message(chat_id, 'Вы уже зарегистрированы как водитель! \nЕсли хотите вызвать трезвого' \
@@ -140,11 +149,14 @@ def main_handler(message):
             all_[chat_id].send_location_request(message, message.contact.phone_number if message.contact else message.text)
         elif all_[chat_id].progress == 'send location' and all_[chat_id].type_ == 'need' and \
             message.location != None:
+            all_[chat_id].update_progress('send location_togo')
+            all_[chat_id].send_location_togo_request(message, message.location)
+        elif all_[chat_id].progress == 'send location_togo' and all_[chat_id].type_== 'need' and \
+            message.location != None:
             all_[chat_id].update_progress('send price')
-            all_[chat_id].send_price_request(message, [message.location.longitude, message.location.latitude])
+            all_[chat_id].send_price_request(message, message.location)
         elif all_[chat_id].progress == 'send own price' and all_[chat_id].type_ == 'need':
-            all_[chat_id].send_own_price_request(message, all_[chat_id].location)
-            print(all_[chat_id])
+            all_[chat_id].send_own_price_request(message, all_[chat_id].location_togo)
 
         #--------------------------первое для водил------------------
         if all_[chat_id].progress == 'send phone' and all_[chat_id].type_ == 'vodila' and \
@@ -195,7 +207,6 @@ def query_handler(call):
             int(call.data) == default_price+2000 or int(call.data) == 10000):
             user.update_progress('send final')
             user.send_final_message(call.data, call.from_user.id)
-            print(user)
             insert_into_db_clients(user)
     #--------------------------прослушка call водил------------------
     if user.type_ == 'vodila' and user.chat_id == call.from_user.id:
