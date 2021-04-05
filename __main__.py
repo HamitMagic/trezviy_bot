@@ -30,17 +30,15 @@ def select_from_db_clients(cursor):
 
 #-------------------------------БД-------------------------------------------
 def insert_into_db_clients(user):
-    DB = "INSERT INTO public.clients(chat_id, category, transmission, phone, username, price, location, location_togo) " \
-        f"VALUES ({user.chat_id}, '{user.category}', '{user.transmission}', " \
-        f"{user.phone}, '{user.username}', {user.price}, ARRAY{[user.location.longitude, user.location.latitude]}, " \
-        f"ARRAY{[user.location_togo.longitude, user.location_togo.latitude]})"
+    DB = f"""INSERT INTO public.clients(chat_id, category, transmission, phone, username, price, location, location_togo)
+    VALUES ({user.chat_id}, '{user.category}', '{user.transmission}', {user.phone}, '{user.username}', {user.price},
+    ARRAY{[user.location.longitude, user.location.latitude]}, ARRAY{[user.location_togo.longitude, user.location_togo.latitude]})"""
     print(DB)
     cursor.execute(DB)
 
 def insert_into_db_drivers(user):
-    DB = "INSERT INTO public.drivers(chat_id, category, transmission, phone, username) " \
-        f"VALUES ({user.chat_id}, ARRAY{user.category}, '{user.transmission}', " \
-        f"{user.phone}, '{user.username}')"
+    DB = f"""INSERT INTO public.drivers(chat_id, category, transmission, phone, username)
+    VALUES ({user.chat_id}, ARRAY{user.category}, '{user.transmission}', {user.phone}, '{user.username}')"""
     print(DB)
     cursor.execute(DB)
 
@@ -113,6 +111,7 @@ def main_handler(message):
     elif all_[chat_id].progress == 'send price' and all_[chat_id].type_ == 'need':
         if message.text.isdigit() and int(message.text) >= default_price:
             all_[chat_id].send_final_message(message.text, chat_id)
+            print(all_[chat_id])
             insert_into_db_clients(all_[chat_id])
         else:
             all_[chat_id].send_own_price_request(message, all_[chat_id].location_togo)
