@@ -14,10 +14,8 @@ all_ = {}
 phone_pattern = r'\b\+?[7,8]7(\s*\d{2}\s*\d{3}\s*\d{2}\s*\d{2})\b'
 
 #-------------------------------БД-------------------------------------------
-def start_db():
-    conn = psycopg2.connect(dbname='postgres', user='postgres', password='HamiT181', host="localhost")
-    return conn.cursor()
-cursor=start_db()
+conn = psycopg2.connect(dbname='postgres', user='postgres', password='HamiT181', host="localhost")
+cursor=conn.cursor()
 
 #-------------------------------БД-------------------------------------------
 def select_from_db_drivers(cursor):
@@ -35,18 +33,37 @@ def insert_into_db_clients(user):
     ARRAY{[user.location.longitude, user.location.latitude]}, ARRAY{[user.location_togo.longitude, user.location_togo.latitude]})"""
     print(DB)
     cursor.execute(DB)
+    conn.commit()
 
 def insert_into_db_drivers(user):
     DB = f"""INSERT INTO public.drivers(chat_id, category, transmission, phone, username)
     VALUES ({user.chat_id}, ARRAY{user.category}, '{user.transmission}', {user.phone}, '{user.username}')"""
     print(DB)
     cursor.execute(DB)
+    conn.commit()
 
 #--------------------------основное сообщение------------------
 def other_message(message):
     keyboard0 = types.ReplyKeyboardMarkup(False, True)
     keyboard0.row('Мне нужен трезвый водитель!', 'Я трезвый водитель! (регистрация)')
     bot.send_message(message.chat.id, 'Упс, что-то пошло не так. давайте начнем с начала... ;)', reply_markup=keyboard0)
+
+#------------------------------------------------------------------
+def get_all_drivers (chat_id):
+    cursor.execute(f"""SELECT chat_id
+	FROM public.drivers
+	WHERE transmission = '{all_[chat_id].transmission}' and '{all_[chat_id].category}' = ANY(category)""")
+    all_drivers = cursor.fetchall()
+    return all_drivers
+
+def send_msg_to_drivers(all_drivers, chat_id):
+    for el in all_drivers:
+12        bot.send_message(el[0], 'Есть заказ на перегон машины от:')
+        bot.send_location(el[0], all_[chat_id].location.latitude, all_[chat_id].location.longitude)
+        bot.send_message(el[0], 'и до места:')
+        bot.send_location(el[0], all_[chat_id].location_togo.latitude, all_[chat_id].location_togo.longitude)
+        bot.send_message(el[0], f'Готовы заплатить {all_[chat_id].price}, если Вы согласны, отправьте свое местоположение ответом на это сообщение')
+
 
 #--------------------------основные команды------------------
 @bot.message_handler(commands=['start'])
@@ -113,6 +130,7 @@ def main_handler(message):
             all_[chat_id].send_final_message(message.text, chat_id)
             print(all_[chat_id])
             insert_into_db_clients(all_[chat_id])
+            send_msg_to_drivers(get_all_drivers(chat_id), chat_id)
         else:
             all_[chat_id].send_own_price_request(message, all_[chat_id].location_togo)
     elif all_[chat_id].progress == 'send own price' and all_[chat_id].type_ == 'need':
@@ -207,6 +225,7 @@ def query_handler(call):
             user.update_progress('send final')
             user.send_final_message(call.data, call.from_user.id)
             insert_into_db_clients(user)
+            send_msg_to_drivers(get_all_drivers(call.from_user.id), call.from_user.id)
     #--------------------------прослушка call водил------------------
     if user.type_ == 'vodila' and user.chat_id == call.from_user.id:
         if user.progress == 'select transmission' and (call.data == 'АКПП' or call.data == 'АКПП + МКПП'):
