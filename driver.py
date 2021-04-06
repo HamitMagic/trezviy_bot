@@ -13,10 +13,13 @@ class driver:
     username = None
     progress = " "
     transmissions = ['АКПП', 'АКПП + МКПП']
+    date = None
+    client_id = None
 
-    def __init__(self, bot, default_price):
+    def __init__(self, bot, default_price=None, chat_id=None):
         self.bot = bot # устанавливаем имя
         self.default_price = default_price
+        self.chat_id = chat_id
 
     def __str__(self):
         return "из драйвера: type_ - %s, transmission - %s, category - %s, phone - %s, location - %s, price - %s, chat_id - %s, username - %s" % (self.type_, self.transmission, self.category, self.phone, self.location, self.price, self.chat_id, self.username)

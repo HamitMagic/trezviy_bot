@@ -13,6 +13,7 @@ class customer:
     default_price = None
     username = None
     progress = ''
+    
 
     def __init__(self, bot, default_price):
         self.bot = bot # устанавливаем имя
