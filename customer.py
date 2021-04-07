@@ -13,7 +13,8 @@ class customer:
     default_price = None
     username = None
     progress = ''
-    
+    distance = 596565645465
+    drivers_chat_id = None
 
     def __init__(self, bot, default_price):
         self.bot = bot # устанавливаем имя

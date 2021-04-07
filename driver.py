@@ -4,7 +4,7 @@ class driver:
     type_ = 'vodila'
     bot = None
     transmission = None
-    category = [" ", " ", " ", " ", " "]
+    category = ["", "", "", "", ""]
     phone = None
     location = None
     price = None
@@ -73,4 +73,4 @@ class driver:
 
     def send_final_message(self, message, phone):
         self.phone = phone
-        self.bot.send_message(message.chat.id, 'Отлично, Вы зарегисрированы!!!')
+        self.bot.send_message(message.chat.id, 'Отлично, Вы зарегистрированы!!!')
