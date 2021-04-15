@@ -4,12 +4,15 @@ import customer
 import driver
 import psycopg2
 from psycopg2 import Error
+import threading
 import re
+import asyncio
 
 bot = telebot.TeleBot('1618386430:AAF_-TsdAqRYckgTA3rMMopDJWkJa3wRCAI')
 
 categories = ['A', 'B', 'C', 'D', 'E']
 default_price = 3000
+sleep_time = 70
 all_ = {}
 drivers = {}
 phone_pattern = r'\b\+?[7,8]7(\s*\d{2}\s*\d{3}\s*\d{2}\s*\d{2})\b'
@@ -35,8 +38,15 @@ def insert_into_db_clients(user):
     conn.commit()
 
 def insert_into_db_drivers(user):
-    DB = f"""INSERT INTO public.drivers(chat_id, category, transmission, phone, username)
-    VALUES ({user.chat_id}, ARRAY{user.category}, '{user.transmission}', {user.phone}, '{user.username}')"""
+    cursor.execute(f"SELECT chat_id FROM public.drivers WHERE chat_id = {user.chat_id}")
+    drivers = cursor.fetchall()
+    if len(drivers) > 0:
+        DB = f"""UPDATE public.drivers
+        SET category=ARRAY{user.category}, phone={user.phone}, username='{user.username}', transmission='{user.transmission}', ready=true
+        WHERE chat_id = {user.chat_id}"""
+    else:
+        DB = f"""INSERT INTO public.drivers(chat_id, category, transmission, phone, username, ready)
+        VALUES ({user.chat_id}, ARRAY{user.category}, '{user.transmission}', {user.phone}, '{user.username}', true)"""
     print(DB)
     cursor.execute(DB)
     conn.commit()
@@ -46,20 +56,46 @@ def other_message(message):
     keyboard0 = types.ReplyKeyboardMarkup(False, True)
     keyboard0.row('Мне нужен трезвый водитель!', 'Я трезвый водитель! (регистрация)')
     bot.send_message(message.chat.id, 'Упс, что-то пошло не так. давайте начнем с начала... ;)', reply_markup=keyboard0)
+    print(message)
+
+def correct_phone(message):
+    if message.contact != None:
+        phone = f'{message.contact.phone_number[-10:]}'
+    else:
+        phone = f'{message.text[-10:]}'
+    return phone
 
 #------------------------------------------------------------------
+async def send_contacts (client_id):
+    await asyncio.sleep(sleep_time)
+    driver_id = all_[client_id].drivers_id
+    if driver_id == None:
+        bot.send_message(client_id, 'Извините, но все водители в данный момент заняты, либо далеко.\n' \
+            'Воспользуйтесь нашей услугой позже, спасибо')
+        return
+    cursor.execute(f"""SELECT phone, username
+    FROM public.drivers
+    WHERE chat_id = '{driver_id}'""")
+    driver = cursor.fetchone()
+    bot.send_message(client_id, f'телефон водителя - +7{driver[0]} \nНе переживайте, он скоро приедет 😀' \
+        '\nСпасибо что воспользовались нашей услугой. Порекомендуйте меня (бота) другу')
+    bot.send_message(driver_id, f'телефон автовладельца - +7{all_[client_id].phone}')
+    drivers = []
+    all_[client_id] = None
+    del all_[client_id]
+
 def get_all_drivers (chat_id):
     if all_[chat_id].transmission == "МКПП":
         print(f"""SELECT chat_id
 	    FROM public.drivers
-	    WHERE transmission = '{'АКПП + МКПП'}' and '{all_[chat_id].category}' = ANY(category)""")
+	    WHERE transmission = '{'АКПП + МКПП'}' and '{all_[chat_id].category}' = ANY(category) and ready = true""")
         cursor.execute(f"""SELECT chat_id
 	    FROM public.drivers
-	    WHERE transmission = '{'АКПП + МКПП'}' and '{all_[chat_id].category}' = ANY(category)""")
+	    WHERE transmission = '{'АКПП + МКПП'}' and '{all_[chat_id].category}' = ANY(category) and ready = true""")
     else:
         cursor.execute(f"""SELECT chat_id
 	    FROM public.drivers
-	    WHERE '{all_[chat_id].category}' = ANY(category)""")
+	    WHERE '{all_[chat_id].category}' = ANY(category) and ready = true""")
     all_drivers = cursor.fetchall()
     return all_drivers
 
@@ -70,22 +106,43 @@ def send_msg_to_drivers(all_drivers, chat_id):
             bot.send_location(el[0], all_[chat_id].location.latitude, all_[chat_id].location.longitude)
             bot.send_message(el[0], 'и до места:')
             bot.send_location(el[0], all_[chat_id].location_togo.latitude, all_[chat_id].location_togo.longitude)
-            sended_message = bot.send_message(el[0], f'Готовы заплатить {all_[chat_id].price}. Если Вы согласны, отправьте свое местоположение ответом на это сообщение')
+            sended_message = bot.send_message(el[0], f'Готовы заплатить {all_[chat_id].price}.' \
+                f'Если Вы согласны, отправьте свое местоположение ответом на это сообщение в течении {sleep_time/60} минут')
             drivers[el[0]] = driver.driver(bot, chat_id=el[0])
-            drivers[el[0]].date = sended_message.date
+            drivers[el[0]].message_id = sended_message.message_id
             drivers[el[0]].progress = 'sended order'
             drivers[el[0]].client_id = chat_id
-        
+    asyncio.run(send_contacts(chat_id))
+
 #--------------------------основные команды------------------
 @bot.message_handler(commands=['start'])
 def start_message(message):
     if message.chat.id in all_:
         all_[message.chat.id] = None
+        print(categories)
         del all_[message.chat.id]
     keyboard0 = types.ReplyKeyboardMarkup(False, True)
     keyboard0.row('Мне нужен трезвый водитель!', 'Я трезвый водитель! (регистрация)')
     bot.send_message(message.chat.id, 'Вам нужен трезвый водитель? Или вы сами трезвый водитель?', reply_markup=keyboard0)
-    
+
+@bot.message_handler(commands=['start_work'])
+def order_message(message):
+    cursor.execute(f"UPDATE public.drivers SET ready = true WHERE chat_id = {message.chat.id}")
+    conn.commit()
+
+@bot.message_handler(commands=['stop_work'])
+def unorder_message(message):
+    cursor.execute(f"UPDATE public.drivers SET ready = false WHERE chat_id = {message.chat.id}")
+    conn.commit()
+
+@bot.message_handler(commands=['faq'])
+def faq_message(message):
+    bot.send_message(message.chat.id, 'разрабатываются........')
+
+@bot.message_handler(commands=['about'])
+def about_message(message):
+    bot.send_message(message.chat.id, 'разрабатывется....')
+
 @bot.message_handler(commands=['help'])
 def help_message(message):
     keyboard = types.InlineKeyboardMarkup()
@@ -131,7 +188,9 @@ def main_handler(message):
             if message.text.isdigit() and int(message.text) >= default_price:
                 all_[chat_id].send_final_message(message.text, chat_id)
                 insert_into_db_clients(all_[chat_id])
-                send_msg_to_drivers(get_all_drivers(chat_id), chat_id)
+                thread=threading.Thread(target=send_msg_to_drivers, args=(get_all_drivers(chat_id), chat_id))
+                thread.start()
+
             else:
                 all_[chat_id].send_own_price_request(message, all_[chat_id].location_togo)
         elif all_[chat_id].progress == 'send own price' and all_[chat_id].type_ == 'need':
@@ -162,7 +221,7 @@ def main_handler(message):
         if all_[chat_id].progress == 'send phone' and all_[chat_id].type_ == 'need' and \
             (message.contact != None or (message.text != None and re.search(phone_pattern, message.text))):
             all_[chat_id].update_progress('send location')
-            all_[chat_id].send_location_request(message, message.contact.phone_number if message.contact else message.text)
+            all_[chat_id].send_location_request(message, correct_phone(message))
         elif all_[chat_id].progress == 'send location' and all_[chat_id].type_ == 'need' and \
             message.location != None:
             all_[chat_id].update_progress('send location_togo')
@@ -178,22 +237,25 @@ def main_handler(message):
         elif all_[chat_id].progress == 'send phone' and all_[chat_id].type_ == 'vodila' and \
             (message.contact != None or (message.text != None and re.search(phone_pattern, message.text))):
             all_[chat_id].update_progress('send final')
-            phone_number = message.contact.phone_number if message.contact else message.text
-            all_[chat_id].send_final_message(message, phone_number)
+            all_[chat_id].send_final_message(message, correct_phone(message))
             insert_into_db_drivers(all_[chat_id])
         
 #--------------------------первое для водил на заказ------------------      
     if chat_id in drivers and chat_id not in all_:
         if drivers[chat_id].progress == 'sended order' and message.location != None:
-            drivers[chat_id].location = message.location
-            print(drivers)
-            bot.send_message(chat_id, 'Понял Вас, ожидайте приглашения!')
-            client_id = drivers[chat_id].client_id
-            distance = (all_[client_id].location.latitude - drivers[chat_id].location.latitude)**2 + \
-                (all_[client_id].location.longitude - drivers[chat_id].location.longitude)**2
-            all_[client_id].distance = distance if distance <= all_[client_id].distance else all_[client_id].distance
-            all_[client_id].drivers_chat_id = chat_id if distance <= all_[client_id].distance else all_[client_id].drivers_chat_id
-            print(all_[client_id].distance)
+            try:
+                if message.reply_to_message.id == drivers[chat_id].message_id:
+                    drivers[chat_id].location = message.location
+                    bot.send_message(chat_id, f'Понял Вас, ожидайте приглашения! \n Если менее чем через {sleep_time/60}' \
+                        'минут не придет сообщение, значит выбрали другого водителя')
+                    client_id = drivers[chat_id].client_id
+                    distance = (all_[client_id].location.latitude - drivers[chat_id].location.latitude)**2 + \
+                        (all_[client_id].location.longitude - drivers[chat_id].location.longitude)**2
+                    all_[client_id].distance = distance if distance <= all_[client_id].distance else all_[client_id].distance
+                    all_[client_id].drivers_id = chat_id if distance <= all_[client_id].distance else all_[client_id].drivers_id
+            except:
+                bot.send_message(chat_id, 'отправьте свое местоположение ОТВЕТОМ на сообщение')
+
     #--------------------------первое сообщение и other msg------------------
     if chat_id not in all_:
         if message.text == 'Мне нужен трезвый водитель!':
@@ -225,10 +287,10 @@ def query_handler(call):
         help_message(call.message)
         return
     elif call.data == '/faq':
-        bot.send_message(call.from_user.id, 'разрабатываются........')
+        faq_message(call.message)
         return
     elif call.data == '/about':
-        bot.send_message(call.from_user.id, 'разрабатывается........')
+        about_message(call.message)
         return
     elif call.from_user.id not in all_ and call.from_user.id not in drivers:
         other_message(call.message)
@@ -255,7 +317,8 @@ def query_handler(call):
                 user.update_progress('send final')
                 user.send_final_message(call.data, call.from_user.id)
                 insert_into_db_clients(user)
-                send_msg_to_drivers(get_all_drivers(call.from_user.id), call.from_user.id)
+                thread=threading.Thread(target=send_msg_to_drivers, args=(get_all_drivers(user.chat_id), user.chat_id))
+                thread.start()
         #--------------------------прослушка call водил------------------
         if user.type_ == 'vodila' and user.chat_id == call.from_user.id:
             if user.progress == 'select transmission' and (call.data == 'АКПП' or call.data == 'АКПП + МКПП'):

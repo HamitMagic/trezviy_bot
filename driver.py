@@ -4,7 +4,7 @@ class driver:
     type_ = 'vodila'
     bot = None
     transmission = None
-    category = ["", "", "", "", ""]
+    category = None
     phone = None
     location = None
     price = None
@@ -15,11 +15,13 @@ class driver:
     transmissions = ['АКПП', 'АКПП + МКПП']
     date = None
     client_id = None
+    message_id = None
 
     def __init__(self, bot, default_price=None, chat_id=None):
         self.bot = bot # устанавливаем имя
         self.default_price = default_price
         self.chat_id = chat_id
+        self.category = ["", "", "", "", ""]
 
     def __str__(self):
         return "из драйвера: type_ - %s, transmission - %s, category - %s, phone - %s, location - %s, price - %s, chat_id - %s, username - %s" % (self.type_, self.transmission, self.category, self.phone, self.location, self.price, self.chat_id, self.username)
@@ -62,7 +64,6 @@ class driver:
             self.category[4] = 'E'
         
     def send_phone_request(self, message, category):
-        
         keyboard0 = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True) 
         button_phone = types.KeyboardButton(text='Номер телефона', request_contact=True) 
         keyboard0.add(button_phone) 
@@ -73,4 +74,4 @@ class driver:
 
     def send_final_message(self, message, phone):
         self.phone = phone
-        self.bot.send_message(message.chat.id, 'Отлично, Вы зарегистрированы!!!')
+        self.bot.send_message(message.chat.id, 'Отлично, Вы зарегистрированы!!!', reply_markup=types.ReplyKeyboardRemove(selective=False))
