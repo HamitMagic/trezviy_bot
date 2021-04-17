@@ -15,7 +15,8 @@ class customer:
     progress = ''
     distance = 596565645465
     drivers_id = None
-
+    offered_drivers = None
+    
     def __init__(self, bot, default_price):
         self.bot = bot # устанавливаем имя
         self.default_price = default_price
