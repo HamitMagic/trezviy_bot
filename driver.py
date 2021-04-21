@@ -51,7 +51,6 @@ class driver:
         self.bot.send_message(chat_id, text, reply_markup=keyboard)
     
     def category_select(self, category):
-        print(self.category)
         if category == 'A':
             self.category[0] = 'A'
         elif category == 'B':

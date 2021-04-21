@@ -14,7 +14,7 @@ bot = telebot.TeleBot('1618386430:AAF_-TsdAqRYckgTA3rMMopDJWkJa3wRCAI')
 categories = ['A', 'B', 'C', 'D', 'E']
 default_price = 3000 #тенге
 sleep_driver= 3600 #секунды
-sleep_time = 70 #секунды
+sleep_time = 300 #секунды
 all_ = {}
 # drivers = {}
 phone_pattern = r'\b\+?[7,8]7(\s*\d{2}\s*\d{3}\s*\d{2}\s*\d{2})\b'
@@ -35,7 +35,6 @@ def insert_into_db_clients(user):
     DB = f"""INSERT INTO public.clients(chat_id, category, transmission, phone, username, price, location, location_togo)
     VALUES ({user.chat_id}, '{user.category}', '{user.transmission}', {user.phone}, '{user.username}', {user.price},
     ARRAY{[user.location.longitude, user.location.latitude]}, ARRAY{[user.location_togo.longitude, user.location_togo.latitude]})"""
-    print(DB)
     cursor.execute(DB)
     conn.commit()
 
@@ -49,7 +48,6 @@ def insert_into_db_drivers(user):
     else:
         DB = f"""INSERT INTO public.drivers(chat_id, category, transmission, phone, username, ready)
         VALUES ({user.chat_id}, ARRAY{user.category}, '{user.transmission}', {user.phone}, '{user.username}', true)"""
-    print(DB)
     cursor.execute(DB)
     conn.commit()
 
@@ -58,7 +56,6 @@ def other_message(message):
     keyboard0 = types.ReplyKeyboardMarkup(False, True)
     keyboard0.row('Мне нужен трезвый водитель!', 'Я трезвый водитель! (регистрация)')
     bot.send_message(message.chat.id, 'Упс, что-то пошло не так. давайте начнем с начала... ;)', reply_markup=keyboard0)
-    print(message)
 
 def correct_phone(message):
     if message.contact != None:
@@ -70,7 +67,6 @@ def correct_phone(message):
 #------------------------------------------------------------------
 def wait_for_driver (driver_id):
     time.sleep(sleep_driver)
-    print(driver_id)
     cursor.execute(f"UPDATE public.drivers SET ready = true WHERE chat_id = '{driver_id}'")
     conn.commit()
     
@@ -96,9 +92,6 @@ async def send_contacts (client_id):
 
 def get_all_drivers (chat_id):
     if all_[chat_id].transmission == "МКПП":
-        print(f"""SELECT chat_id
-	    FROM public.drivers
-	    WHERE transmission = '{'АКПП + МКПП'}' and '{all_[chat_id].category}' = ANY(category) and ready = true""")
         cursor.execute(f"""SELECT chat_id
 	    FROM public.drivers
 	    WHERE transmission = '{'АКПП + МКПП'}' and '{all_[chat_id].category}' = ANY(category) and ready = true""")
@@ -142,7 +135,6 @@ def findDriver(chat_id, message_id = None):
 def start_message(message):
     if message.chat.id in all_:
         all_[message.chat.id] = None
-        print(categories)
         del all_[message.chat.id]
     keyboard0 = types.ReplyKeyboardMarkup(False, True)
     keyboard0.row('Мне нужен трезвый водитель!', 'Я трезвый водитель! (регистрация)')
@@ -185,7 +177,6 @@ def help_message(message):
 #--------------------------прослушка сообщений------------------
 @bot.message_handler(content_types=['text', 'location', 'contact'])
 def main_handler(message):
-    print('--------------------------------------------------------------')
     chat_id = message.chat.id
     replied_driver = None
     #--------------------------первое для водил на заказ------------------
@@ -234,7 +225,6 @@ def main_handler(message):
                     insert_into_db_clients(all_[chat_id])
                     thread=threading.Thread(target=send_msg_to_drivers, args=(get_all_drivers(chat_id), chat_id))
                     thread.start()
-
                 else:
                     all_[chat_id].send_own_price_request(message, all_[chat_id].location_togo)
             elif all_[chat_id].progress == 'send own price' and all_[chat_id].type_ == 'need':
@@ -283,8 +273,6 @@ def main_handler(message):
                 all_[chat_id].update_progress('send final')
                 all_[chat_id].send_final_message(message, correct_phone(message))
                 insert_into_db_drivers(all_[chat_id])
-            
-
 
         #--------------------------первое сообщение и other msg------------------
         if chat_id not in all_:
@@ -296,17 +284,14 @@ def main_handler(message):
                 all_[chat_id] = driver.driver(bot,default_price)
                 all_[chat_id].update_progress('select transmission')
                 all_[chat_id].send_transmission_request(message)
-            elif not chat_id in all_ and replied_driver == None:
+            elif not chat_id in all_ and replied_driver == None and all_[chat_id].progress != 'sended order':
                 other_message(message)
-
-
 
 
 #--------------------------прослушка Call  сообщений------------------
 @bot.callback_query_handler(func=lambda call: True)
 def query_handler(call):
     #--------------------------прослушка команд------------------
-    print('----------------------------------------')
     if call.data == '/start':
         start_message(call.message)
         return
@@ -346,6 +331,7 @@ def query_handler(call):
                 insert_into_db_clients(user)
                 thread=threading.Thread(target=send_msg_to_drivers, args=(get_all_drivers(user.chat_id), user.chat_id))
                 thread.start()
+
         #--------------------------прослушка call водил------------------
         if user.type_ == 'vodila' and user.chat_id == call.from_user.id:
             if user.progress == 'select transmission' and (call.data == 'АКПП' or call.data == 'АКПП + МКПП'):
@@ -359,8 +345,5 @@ def query_handler(call):
                 user.send_phone_request(call.message, user.category)
             elif user.progress == 'select category' and call.data == 'Далее' and all(x == '' for x in user.category):
                 user.send_category_request(user.transmission, call.from_user.id, 'Вам НУЖНО выбрать категории ВУ')
-    #if call.from_user.id in drivers:
-
-
 
 bot.polling()
