@@ -152,11 +152,11 @@ def unorder_message(message):
 
 @bot.message_handler(commands=['faq'])
 def faq_message(message):
-    bot.send_message(message.chat.id, 'разрабатываются........')
+    bot.send_message(message.chat.id, 'Все интересующие вопросы можно задать в чате https://t.me/joinchat/jkDLpKm0O4cwNDVi')
 
 @bot.message_handler(commands=['about'])
 def about_message(message):
-    bot.send_message(message.chat.id, 'разрабатывется....')
+    bot.send_message(message.chat.id, 'В процессе разработки')
 
 @bot.message_handler(commands=['help'])
 def help_message(message):
@@ -165,14 +165,15 @@ def help_message(message):
     item2 = types.InlineKeyboardButton('Помощь', callback_data='/help')
     item3 = types.InlineKeyboardButton('О боте', callback_data='/about')
     item4 = types.InlineKeyboardButton('ЧАВО / FAQ', callback_data='/faq')
-    keyboard.add(item1, item2, item3, item4, row_width=2)
+    item5 = types.InlineKeyboardButton('Чат техподдержки', url='https://t.me/joinchat/jkDLpKm0O4cwNDVi')
+    keyboard.add(item1, item2, item3, item4, item5, row_width=2)
     bot.send_message(message.chat.id, f'Цена внутри квадрата Альфараби, Саина, Рыскулова, ВОАД = {default_price}')
     bot.send_message(message.chat.id, 'Водитель имеет права отказаться ехать, если его что-то не устроит.' \
         '\nПри этом вы можете смело вызывать другого водителя.')
     bot.send_message(message.chat.id, 'Так же и хозяин имеет права отказаться от водителя, если первого что-то не устроит.' \
         '\nПри этом вы можете смело получать другой заказ.')
-    bot.send_message(message.chat.id, 'Всегда проверяйте документы как водителей так и хозяев автомашин,' \
-        'соблюдайте ПДД.', reply_markup=keyboard)
+    bot.send_message(message.chat.id, 'Всегда проверяйте документы как, водителей так и хозяев автомашин,' \
+        ' соблюдайте ПДД.', reply_markup=keyboard)
 
 #--------------------------прослушка сообщений------------------
 @bot.message_handler(content_types=['text', 'location', 'contact'])
