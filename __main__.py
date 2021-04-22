@@ -19,7 +19,7 @@ sleep_time = 300 #секунды
 all_ = {}
 
 #-------------------------------БД-------------------------------------------
-conn = psycopg2.connect(dbname='postgres', user='postgres', password='HamiT181', host="localhost")
+conn = psycopg2.connect(dbname='almaty', user='postgres', password='HamiT181', host="localhost")
 cursor=conn.cursor()
 
 def select_from_db_drivers(cursor):
