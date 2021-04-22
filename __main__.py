@@ -8,16 +8,15 @@ import time
 import threading
 import re
 import asyncio
+import login_almaty
 
-bot = telebot.TeleBot('1618386430:AAF_-TsdAqRYckgTA3rMMopDJWkJa3wRCAI')
+bot = telebot.TeleBot(login_almaty.login)
 
 categories = ['A', 'B', 'C', 'D', 'E']
 default_price = 3000 #тенге
 sleep_driver= 3600 #секунды
 sleep_time = 300 #секунды
 all_ = {}
-# drivers = {}
-phone_pattern = r'\b\+?[7,8]7(\s*\d{2}\s*\d{3}\s*\d{2}\s*\d{2})\b'
 
 #-------------------------------БД-------------------------------------------
 conn = psycopg2.connect(dbname='postgres', user='postgres', password='HamiT181', host="localhost")
@@ -86,7 +85,6 @@ async def send_contacts (client_id):
     conn.commit()
     thread=threading.Thread(target=wait_for_driver, args=[driver_id])
     thread.start()
-    # drivers = []
     all_[client_id] = None
     del all_[client_id]
 
@@ -126,7 +124,7 @@ def findDriver(chat_id, message_id = None):
         if not client.offered_drivers:
             continue
         for key2, driver in client.offered_drivers.items():
-            if driver.chat_id == chat_id and driver.message_id == message_id:
+            if driver.chat_id == chat_id:
                 return driver
     return None
 
@@ -183,7 +181,7 @@ def main_handler(message):
     #--------------------------первое для водил на заказ------------------
     try:
         replied_driver = findDriver(chat_id, message.reply_to_message.id)
-        if replied_driver != None and chat_id not in all_:
+        if replied_driver != None and replied_driver.message_id == message.reply_to_message.id and chat_id not in all_:
             if replied_driver.progress == 'sended order' and message.location != None:
                 try:
                     if replied_driver != None:
@@ -209,7 +207,7 @@ def main_handler(message):
                 bot.send_message(chat_id, 'Давайте попробуем еще раз, выберите категорию авто')
                 all_[chat_id].send_category_request(all_[chat_id].transmission, chat_id)
             elif all_[chat_id].progress == 'send phone' and all_[chat_id].type_ == 'need' and \
-                message.contact == None and not re.search(phone_pattern, message.text):
+                message.contact == None and not re.search(login_almaty.phone_pattern, message.text):
                 bot.send_message(chat_id, 'Давайте попробуем еще раз, отправьте номер телефона')
                 all_[chat_id].send_phone_request(message, all_[chat_id].category)
             elif all_[chat_id].progress == 'send location' and all_[chat_id].type_ == 'need' and \
@@ -242,7 +240,7 @@ def main_handler(message):
                 bot.send_message(chat_id, 'Давайте попробуем еще раз?')
                 all_[chat_id].send_category_request(all_[chat_id].transmission, chat_id, 'Выберите категории ВУ и нажмите далее')
             elif all_[chat_id].progress == 'send phone' and all_[chat_id].type_ == 'vodila' and \
-                message.contact == None and not re.search(phone_pattern, message.text):
+                message.contact == None and not re.search(login_almaty.phone_pattern, message.text):
                 bot.send_message(chat_id, 'Давайте попробуем еще раз?')
                 all_[chat_id].send_phone_request(message, all_[chat_id].category)
             elif all_[chat_id].progress == 'send price' and all_[chat_id].type_ == 'vodila':
@@ -254,7 +252,7 @@ def main_handler(message):
             
             #--------------------------первое для заказчиков------------------
             if all_[chat_id].progress == 'send phone' and all_[chat_id].type_ == 'need' and \
-                (message.contact != None or (message.text != None and re.search(phone_pattern, message.text))):
+                (message.contact != None or (message.text != None and re.search(login_almaty.phone_pattern, message.text))):
                 all_[chat_id].update_progress('send location')
                 all_[chat_id].send_location_request(message, correct_phone(message))
             elif all_[chat_id].progress == 'send location' and all_[chat_id].type_ == 'need' and \
@@ -270,7 +268,7 @@ def main_handler(message):
             
             #--------------------------первое для водил------------------
             elif all_[chat_id].progress == 'send phone' and all_[chat_id].type_ == 'vodila' and \
-                (message.contact != None or (message.text != None and re.search(phone_pattern, message.text))):
+                (message.contact != None or (message.text != None and re.search(login_almaty.phone_pattern, message.text))):
                 all_[chat_id].update_progress('send final')
                 all_[chat_id].send_final_message(message, correct_phone(message))
                 insert_into_db_drivers(all_[chat_id])
@@ -282,11 +280,15 @@ def main_handler(message):
                 all_[chat_id].update_progress('select transmission')
                 all_[chat_id].send_transmission_request(message)
             elif message.text == 'Я трезвый водитель! (регистрация)':
-                all_[chat_id] = driver.driver(bot,default_price)
+                all_[chat_id] = driver.driver(bot, default_price)
                 all_[chat_id].update_progress('select transmission')
                 all_[chat_id].send_transmission_request(message)
-            elif not chat_id in all_ and replied_driver == None and all_[chat_id].progress != 'sended order':
-                other_message(message)
+            elif not chat_id in all_ and replied_driver == None:
+                driver0 = findDriver(chat_id, message.id)
+                if driver0 != None and driver0.progress == 'sended order':
+                    bot.send_message(chat_id, 'Отправьте локацию ответом на предыдущее сообщение')
+                else:
+                    other_message(message)
 
 
 #--------------------------прослушка Call  сообщений------------------
